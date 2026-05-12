@@ -1,0 +1,6 @@
+streamlit
+vietocr
+Pillow
+numpy
+pdf2image
+python-docx
