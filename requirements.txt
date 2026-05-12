@@ -1,5 +1,5 @@
 streamlit
-vietocr
+easyocr
 Pillow
 numpy
 pdf2image
