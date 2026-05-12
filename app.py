@@ -9,8 +9,8 @@ from datetime import datetime
 
 st.set_page_config(page_title="OCR Tiếng Việt", page_icon="🔍", layout="wide")
 
-st.title("🔍 Tool OCR Chữ Đánh Máy Tiếng Việt (EasyOCR)")
-st.markdown("**Hỗ trợ PDF nhiều trang • Xuất TXT & Word**")
+st.title("🔍 Tool OCR Chữ Đánh Máy Tiếng Việt")
+st.markdown("**Hỗ trợ PDF & Ảnh • Xuất TXT & Word**")
 
 @st.cache_resource
 def load_reader():
@@ -18,23 +18,30 @@ def load_reader():
 
 reader = load_reader()
 
-uploaded_file = st.file_uploader("Upload ảnh hoặc PDF", type=["jpg", "jpeg", "png", "pdf"])
+uploaded_file = st.file_uploader("Upload ảnh hoặc PDF", 
+                                 type=["jpg", "jpeg", "png", "pdf"])
 
 if uploaded_file is not None:
     all_text = ""
     pages = []
 
-    if uploaded_file.type == "application/pdf":
-        st.info(f"📄 Đang xử lý: {uploaded_file.name}")
-        images = convert_from_bytes(uploaded_file.read(), dpi=250)
-    else:
-        images = [Image.open(uploaded_file)]
+    try:
+        if uploaded_file.type == "application/pdf":
+            st.info(f"📄 Đang xử lý PDF: {uploaded_file.name}")
+            with st.spinner("Chuyển PDF sang ảnh..."):
+                images = convert_from_bytes(uploaded_file.read(), dpi=220)  # Giảm dpi để nhanh hơn
+        else:
+            images = [Image.open(uploaded_file)]
+    except Exception as e:
+        st.error("❌ Không thể xử lý file PDF. Đảm bảo đã có file `packages.txt` chứa `poppler-utils`.")
+        st.stop()
 
+    # OCR
     progress_bar = st.progress(0)
     status_text = st.empty()
 
     for i, img in enumerate(images):
-        status_text.text(f"OCR trang {i+1}/{len(images)}...")
+        status_text.text(f"OCR trang {i+1}/{len(images)} ...")
         img_array = np.array(img)
         
         results = reader.readtext(img_array, detail=0, paragraph=True)
@@ -45,19 +52,22 @@ if uploaded_file is not None:
         
         progress_bar.progress((i + 1) / len(images))
 
-    st.success(f"✅ Hoàn tất! ({len(images)} trang)")
+    st.success(f"✅ Hoàn tất OCR! ({len(images)} trang)")
 
-    tab1, tab2, tab3 = st.tabs(["📋 Toàn bộ Text", "📄 Theo trang", "📥 Tải file"])
+    # Tabs
+    tab1, tab2, tab3 = st.tabs(["📋 Toàn bộ Text", "📄 Xem theo trang", "📥 Tải file"])
 
     with tab1:
-        st.text_area("Kết quả:", all_text, height=400)
+        st.text_area("Kết quả OCR:", all_text, height=400)
 
     with tab2:
         for page_num, img, text in pages:
             with st.expander(f"Trang {page_num}"):
                 col1, col2 = st.columns([1,1])
-                with col1: st.image(img, use_column_width=True)
-                with col2: st.text_area("Text", text, height=250, key=f"p{page_num}")
+                with col1:
+                    st.image(img, use_column_width=True)
+                with col2:
+                    st.text_area("Nội dung", text, height=250)
 
     with tab3:
         col1, col2 = st.columns(2)
@@ -69,9 +79,12 @@ if uploaded_file is not None:
             doc.add_paragraph(all_text)
             bio = io.BytesIO()
             doc.save(bio)
-            st.download_button("📥 Tải Word (.docx)", bio.getvalue(), 
-                             f"ocr_result_{datetime.now().strftime('%Y%m%d')}.docx",
-                             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            st.download_button(
+                "📥 Tải Word (.docx)", 
+                bio.getvalue(),
+                f"ocr_result_{datetime.now().strftime('%Y%m%d')}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
 
 else:
-    st.info("👆 Upload file ảnh hoặc PDF để bắt đầu")
+    st.info("👆 Upload file ảnh hoặc PDF để bắt đầu OCR")
